@@ -106,6 +106,7 @@ class Channel:
         return self.size() >= self._maxsize
 
     def close(self) -> None:
+        "Closes the channel"
         if self._closed_flag is True:
             return
         self._closed_flag = True

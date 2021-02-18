@@ -8,7 +8,7 @@ Simple send and receive from channels
 Let's start with simplest thing: ::
 
     import asyncio
-    from one_ring import Channel
+    from one_ring import Channel, run_main
 
 
     async def job(ch: Channel):
@@ -19,8 +19,9 @@ Let's start with simplest thing: ::
         print("job: finished")
 
 
-    async def main(loop):
+    async def main():
         ch = Channel()
+        loop = asyncio.get_event_loop()
         loop.create_task(job(ch))
         print("main: try to receive data")
         data = await ch.receive()
@@ -28,13 +29,7 @@ Let's start with simplest thing: ::
 
 
     if __name__ == "__main__":
-        loop = asyncio.get_event_loop()
-        try:
-            loop.run_until_complete(main(loop))
-        except KeyboardInterrupt:
-            pass
-        finally:
-            loop.close()
+        run_main(main())
 
 
 The result will be:
@@ -57,11 +52,10 @@ Buffered channel
 
 You can create buffered channel by passing :code:`maxsize` to Channel class: ::
 
-    import asyncio
-    from one_ring import Channel
+    from one_ring import Channel, run_main
 
 
-    async def main(loop):
+    async def main():
         ch = Channel(maxsize=2)
 
         ch.send_nowait(1)  # >>> True
@@ -78,10 +72,4 @@ You can create buffered channel by passing :code:`maxsize` to Channel class: ::
 
 
     if __name__ == "__main__":
-        loop = asyncio.get_event_loop()
-        try:
-            loop.run_until_complete(main(loop))
-        except KeyboardInterrupt:
-            pass
-        finally:
-            loop.close()
+        run_main(main())

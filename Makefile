@@ -22,3 +22,7 @@ lint:
 .PHONY: test
 test:
 	PYTHONPATH=. pytest ./tests/ -v
+
+.PHONY: build
+build:
+	python setup.py sdist bdist_wheel
