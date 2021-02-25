@@ -4,6 +4,7 @@
    self
    usecases
    reference
+   pitfalls
 
 Overview
 =========
