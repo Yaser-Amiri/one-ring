@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from one_ring import Nursery, NurseryChildFailure, ActionOnFailure
+from one_ring.nursery import NURSERY_MAIN_TASK_NAME
 
 
 async def nop(count=1):
@@ -21,7 +22,7 @@ async def nop_err(count=1):
 @pytest.mark.asyncio
 async def test_nursery_task_name_generation(event_loop):
     n = Nursery()
-    for i in range(5):
+    for i in range(1, 5):
         assert n._generate_task_name() == "task-%s" % i
 
 
@@ -29,7 +30,7 @@ async def test_nursery_task_name_generation(event_loop):
 async def test_start_task_with_custom_acceptable_name(event_loop):
     name = "aaa"
     async with Nursery() as n:
-        assert n.tasks == {}
+        assert len(n.tasks) == 1
         n.start(nop(), name)
         assert name in n.tasks
 
@@ -54,7 +55,7 @@ async def test_get_task_by_name_with_wrong_name(event_loop):
 async def test_start_task_with_custom_duplicate_name(event_loop):
     name = "aaa"
     async with Nursery() as n:
-        assert n.tasks == {}
+        assert len(n.tasks) == 1
         n.start(nop(), name)
         assert name in n.tasks
 
@@ -74,8 +75,9 @@ async def test_all_coroutine_are_done_after_exit(event_loop):
         n1.start(nop(randint(10, 20)))
         n1.start(nop(randint(10, 20)))
 
-    for t in n1.tasks.values():
-        assert t.done()
+    for name, t in n1.tasks.items():
+        if name != NURSERY_MAIN_TASK_NAME:
+            assert t.done()
 
     # with raising exception in tasks
     # check for all types of ActionOnFailure
@@ -89,8 +91,9 @@ async def test_all_coroutine_are_done_after_exit(event_loop):
             if "booo!" not in str(e.__cause__):
                 raise
         finally:
-            for t in n2.tasks.values():
-                assert t.done()
+            for name, t in n2.tasks.items():
+                if name != NURSERY_MAIN_TASK_NAME:
+                    assert t.done()
 
 
 @pytest.mark.asyncio
@@ -135,10 +138,10 @@ async def test_raising_exception_at_exit(event_loop):
     else:
         assert False, "this is wrong! it must raise for IGNORE_AND_RAISE"
 
-    # CANCALE_ALL_CHILDREN_WITHOUT_RAISE
+    # CANCEL_ALL_CHILDREN_WITHOUT_RAISE
     try:
         async with Nursery(
-            ActionOnFailure.CANCALE_ALL_CHILDREN_WITHOUT_RAISE
+            ActionOnFailure.CANCEL_ALL_CHILDREN_WITHOUT_RAISE
         ) as n:
             n.start(nop_err(1))
     except NurseryChildFailure:
@@ -147,11 +150,9 @@ async def test_raising_exception_at_exit(event_loop):
         assert n.exception.get("exception_obj", None) is not None
         assert n.exception.get("task", None) is not None
 
-    # CANCALE_ALL_CHILDREN_AND_RAISE
+    # CANCEL_ALL_CHILDREN_AND_RAISE
     try:
-        async with Nursery(
-            ActionOnFailure.CANCALE_ALL_CHILDREN_AND_RAISE
-        ) as n:
+        async with Nursery(ActionOnFailure.CANCEL_ALL_CHILDREN_AND_RAISE) as n:
             n.start(nop_err(1))
     except NurseryChildFailure:
         assert n.exception.get("exception_obj", None) is not None
@@ -159,11 +160,11 @@ async def test_raising_exception_at_exit(event_loop):
     else:
         assert (
             False
-        ), "this is wrong! it must raise for CANCALE_ALL_CHILDREN_AND_RAISE"
+        ), "this is wrong! it must raise for CANCEL_ALL_CHILDREN_AND_RAISE"
 
 
 @pytest.mark.asyncio
-async def test_cancellation_on_CANCALE_ALL_CHILDREN_WITHOUT_RAISE(event_loop):
+async def test_cancellation_on_CANCEL_ALL_CHILDREN_WITHOUT_RAISE(event_loop):
     async def job(c):
         try:
             await nop(1)
@@ -173,9 +174,7 @@ async def test_cancellation_on_CANCALE_ALL_CHILDREN_WITHOUT_RAISE(event_loop):
             c(True)
 
     cancelled = MagicMock(return_value=1)
-    async with Nursery(
-        ActionOnFailure.CANCALE_ALL_CHILDREN_WITHOUT_RAISE
-    ) as n:
+    async with Nursery(ActionOnFailure.CANCEL_ALL_CHILDREN_WITHOUT_RAISE) as n:
         n.start(job(cancelled))
         n.start(nop_err(1))
 
@@ -203,7 +202,7 @@ async def test_cancellation_on_IGNORE_WITHOUT_RAISE(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_cancellation_on_CANCALE_ALL_CHILDREN_AND_RAISE(event_loop):
+async def test_cancellation_on_CANCEL_ALL_CHILDREN_AND_RAISE(event_loop):
     async def job(c):
         try:
             await nop(1)
@@ -214,9 +213,7 @@ async def test_cancellation_on_CANCALE_ALL_CHILDREN_AND_RAISE(event_loop):
 
     cancelled = MagicMock(return_value=1)
     try:
-        async with Nursery(
-            ActionOnFailure.CANCALE_ALL_CHILDREN_AND_RAISE
-        ) as n:
+        async with Nursery(ActionOnFailure.CANCEL_ALL_CHILDREN_AND_RAISE) as n:
             n.start(job(cancelled))
             n.start(nop_err(1))
     except NurseryChildFailure:
@@ -251,3 +248,125 @@ async def test_cancellation_on_IGNORE_AND_RAISE(event_loop):
         assert False, "it must raise exception"
 
     cancelled.assert_called_with(False)
+
+
+@pytest.mark.asyncio
+async def test_exception_in_body_CANCEL_ALL_CHILDREN_WITHOUT_RAISE(event_loop):
+    async def job(c):
+        try:
+            await nop(1)
+            await asyncio.sleep(1)
+            await nop(1)
+        except asyncio.CancelledError:
+            c(True)
+        else:
+            c(False)
+
+    cancelled = MagicMock(return_value=1)
+
+    class Blah(Exception):
+        pass
+
+    try:
+        async with Nursery(
+            ActionOnFailure.CANCEL_ALL_CHILDREN_WITHOUT_RAISE
+        ) as n:
+            n.start(job(cancelled))
+            await nop()
+            raise Blah("!")
+    except Blah:
+        pass
+    else:
+        assert False, "it must raise exception"
+
+    cancelled.assert_called_with(True)
+
+
+@pytest.mark.asyncio
+async def test_exception_in_body_CANCEL_ALL_CHILDREN_AND_RAISE(event_loop):
+    async def job(c):
+        try:
+            await nop(1)
+            await asyncio.sleep(1)
+            await nop(1)
+        except asyncio.CancelledError:
+            c(True)
+        else:
+            c(False)
+
+    cancelled = MagicMock(return_value=1)
+
+    class Blah(Exception):
+        pass
+
+    try:
+        async with Nursery(ActionOnFailure.CANCEL_ALL_CHILDREN_AND_RAISE) as n:
+            n.start(job(cancelled))
+            await nop()
+            raise Blah("!")
+    except Blah:
+        pass
+    else:
+        assert False, "it must raise exception"
+
+    cancelled.assert_called_with(True)
+
+
+@pytest.mark.asyncio
+async def test_exception_in_body_IGNORE_AND_RAISE(event_loop):
+    async def job(c):
+        try:
+            await nop(1)
+            await asyncio.sleep(1)
+            await nop(1)
+        except asyncio.CancelledError:
+            c(True)
+        else:
+            c(False)
+
+    cancelled = MagicMock(return_value=1)
+
+    class Blah(Exception):
+        pass
+
+    try:
+        async with Nursery(ActionOnFailure.IGNORE_AND_RAISE) as n:
+            n.start(job(cancelled))
+            await nop()
+            raise Blah("!")
+    except Blah:
+        pass
+    else:
+        assert False, "it must raise exception"
+
+    cancelled.assert_called_with(True)
+
+
+@pytest.mark.asyncio
+async def test_exception_in_body_IGNORE_WITHOUT_RAISE(event_loop):
+    async def job(c):
+        try:
+            await nop(1)
+            await asyncio.sleep(1)
+            await nop(1)
+        except asyncio.CancelledError:
+            c(True)
+        else:
+            c(False)
+
+    cancelled = MagicMock(return_value=1)
+
+    class Blah(Exception):
+        pass
+
+    try:
+        async with Nursery(ActionOnFailure.IGNORE_WITHOUT_RAISE) as n:
+            n.start(job(cancelled))
+            await nop()
+            raise Blah("!")
+    except Blah:
+        pass
+    else:
+        assert False, "it must raise exception"
+
+    cancelled.assert_called_with(True)

@@ -23,7 +23,7 @@ If your nursery decide to cancel everything after a child failure,
 
 
   async def main():
-      async with Nursery(ActionOnFailure.CANCALE_ALL_CHILDREN_WITHOUT_RAISE) as n:
+      async with Nursery(ActionOnFailure.CANCEL_ALL_CHILDREN_WITHOUT_RAISE) as n:
           n.start(failure_job(1))
           await sleep(3)
           logging.info("sleep in nursery body ended")
