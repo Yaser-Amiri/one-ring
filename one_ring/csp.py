@@ -272,9 +272,7 @@ def select_nowait(
     return None, None
 
 
-async def select(
-    *select_actions: Selectable, nowait=False
-) -> Tuple[Channel, Any]:
+async def select(*select_actions: Selectable) -> Tuple[Channel, Any]:
     for sa in select_actions:
         if isinstance(sa, SendAction) and sa.item is None:
             raise SendNoneToChannelError

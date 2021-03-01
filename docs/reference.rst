@@ -13,6 +13,8 @@ Refrence of CSP things
 
 .. autofunction:: one_ring.select
 
+.. autofunction:: one_ring.select_nowait
+
 .. autofunction:: one_ring.Timeout
 
 
