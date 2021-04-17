@@ -3,7 +3,7 @@ Reference
 =========
 
 CSP
-*******
+***
 Refrence of CSP things
 
 .. autoclass:: one_ring.Channel
