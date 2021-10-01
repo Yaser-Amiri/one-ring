@@ -1,13 +1,20 @@
+import pathlib
 from setuptools import setup, find_packages
+
+HERE = pathlib.Path(__file__).parent
+README = (HERE / "README.md").read_text()
 
 setup(
     name="one_ring",
-    version="1.0.0",
+    version="0.1.0",
     author="Yaser Amiri",
     author_email="yaser.amiri95@gmail.com",
+    url="https://github.com/Yaser-Amiri/One-Ring",
     description="High level async programming",
+    long_description=README,
+    long_description_content_type="text/markdown",
     license="MIT",
-    packages=find_packages(),
+    packages=find_packages(exclude=("tests",)),
     classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
