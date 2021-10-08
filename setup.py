@@ -6,10 +6,10 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="one_ring",
-    version="0.1.0",
+    version="0.1.1",
     author="Yaser Amiri",
     author_email="yaser.amiri95@gmail.com",
-    url="https://github.com/Yaser-Amiri/One-Ring",
+    url="https://github.com/Yaser-Amiri/one-ring",
     description="High level async programming",
     long_description=README,
     long_description_content_type="text/markdown",
